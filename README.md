@@ -1,271 +1,140 @@
-# Canon LBP2330 – Custom Linux/CUPS Driver
+# Canon LBP2330 — Linux Driver & Installer
 
-A complete, hand-crafted CUPS driver for the **Canon i-SENSYS LBP2330** that:
+A clean PCL5e driver setup for the **Canon LBP2330** on Linux, fixing two known issues:
+- `universal filter failed` — caused by missing `foomatic-rip` binary
+- Progressive bottom-right page drift — caused by `-dPDFFitPage` in the Ghostscript command
 
-- Targets **PCL6 (PCL XL)** — the printer's native high-speed language
-- Defaults to **A4 / Plain Paper / 600 dpi / Simplex**
-- Exposes **full duplex** (long-edge and short-edge)
-- Provides a **universal print wrapper** for PDF, Office formats, and images
-- Does **not** impose artificial speed caps from generic/buggy drivers
+Tested on Arch Linux. Installer supports Arch/Manjaro, Debian/Ubuntu, and Fedora/RHEL.
 
 ---
 
-## What's Included
+## Files
 
-```
-canon-lbp2330-driver/
-├── ppd/
-│   └── Canon-LBP2330.ppd       ← CUPS printer description (PCL6)
-├── filters/
-│   └── rastertopcl6            ← Python3 PCL6 raster filter
-├── scripts/
-│   ├── install.sh              ← Automated installer
-│   └── print-file.sh           ← Universal print wrapper
-└── README.md
-```
+| File | Description |
+|------|-------------|
+| `install.sh` | Full installer — installs deps, writes PPD, registers printer |
+| `canon-lbp2330-fixed.ppd` | The fixed PPD file (also embedded inside `install.sh`) |
 
 ---
 
-## Step 1 — Install Dependencies
+## Quick Start
+
+Plug in the printer, power it on, then:
 
 ```bash
-# Debian / Ubuntu / Linux Mint
-sudo apt update
-sudo apt install cups cups-filters ghostscript python3 \
-                 poppler-utils imagemagick libreoffice \
-                 librsvg2-bin enscript
+sudo bash install.sh
+```
 
-# Fedora / RHEL
-sudo dnf install cups cups-filters ghostscript python3 \
-                 poppler-utils ImageMagick libreoffice librsvg2-tools enscript
+That's it. The script handles everything.
 
-# Arch / Manjaro
-sudo pacman -S cups cups-filters ghostscript python \
-               poppler imagemagick libreoffice-still librsvg enscript
+---
+
+## What the Installer Does
+
+1. **Detects your distro** (pacman / apt / dnf) and installs the right packages
+2. **Verifies** that `gs`, `foomatic-rip`, `cupsd`, and `lpadmin` are all present
+3. **Writes the PPD** to `/usr/share/cups/model/canon-lbp2330.ppd`
+4. **Starts CUPS** via systemctl
+5. **Auto-detects the printer URI** via `lpinfo -v` — prompts for manual entry if not found
+6. **Registers the print queue** as `Canon-LBP2330`, sets A4 default, marks as system default
+7. **Enables** the queue and accepts jobs
+
+---
+
+## Dependencies Installed
+
+### Arch / Manjaro
+```
+cups  cups-filters  ghostscript
+foomatic-db  foomatic-db-engine  foomatic-db-nonfree
+foomatic-db-nonfree-ppds  gsfonts  a2ps
+```
+> `foomatic-rip` is provided by `foomatic-db-engine` on Arch — there is no standalone `foomatic-rip` package.
+
+### Debian / Ubuntu
+```
+cups  cups-filters  ghostscript
+foomatic-db  foomatic-db-engine  foomatic-filters
+printer-driver-gutenprint  gsfonts  a2ps  libcups2
+```
+
+### Fedora / RHEL
+```
+cups  cups-filters  ghostscript
+foomatic  foomatic-db  foomatic-db-ppds  foomatic-filters
+gsfonts  a2ps
 ```
 
 ---
 
-## Step 2 — Connect Your Printer
+## PPD Changes (vs. original)
 
-**USB (most common):**  
-Just plug in the USB cable. The printer will appear as a USB device.
-
-**Network (Ethernet or Wi-Fi):**  
-Find the printer's IP address from its LCD panel:
-`Menu → Network Settings → TCP/IP → IPv4 Address`
-
----
-
-## Step 3 — Install the Driver
-
-```bash
-cd canon-lbp2330-driver
-
-# USB connection:
-sudo bash scripts/install.sh --usb
-
-# Network connection (replace with your printer's IP):
-sudo bash scripts/install.sh --network 192.168.1.100
-
-# LPD/LPR protocol (older network setup):
-sudo bash scripts/install.sh --lpd 192.168.1.100
-```
-
-The installer will:
-1. Install the PCL6 filter to `/usr/lib/cups/filter/`
-2. Install the PPD to `/usr/share/ppd/Canon/`
-3. Auto-detect your USB URI or use the provided IP
-4. Register the printer in CUPS with the correct defaults
-5. Set it as your system default printer
+| Setting | Original | Fixed |
+|---------|----------|-------|
+| `cupsFilter` | `foomatic-rip` (not installed) | `foomatic-rip` (now installed by script) |
+| GS device | `ljet4d` | `ljet4` (more stable, avoids duplex signal issues) |
+| `-dPDFFitPage` | Present (caused page drift) | **Removed** |
+| `-dFIXEDMEDIA` | Present | Kept |
 
 ---
 
-## Step 4 — Print Something
+## Manual Printer Management
 
-### Graphical apps (GNOME, KDE, etc.)
-The printer will appear as **"Canon i-SENSYS LBP2330"** in any print dialog.
-
-### Command line — quick print
 ```bash
+# Check printer status
+lpstat -p Canon-LBP2330 -l
+
+# Test print
+echo "Test Page" | lp -d Canon-LBP2330
+
 # Print a PDF
-lp -d Canon_LBP2330 document.pdf
+lp -d Canon-LBP2330 /path/to/file.pdf
 
-# Print duplex (flip on long edge — normal portrait duplex)
-lp -d Canon_LBP2330 -o Duplex=DuplexNoTumble document.pdf
+# Remove the printer queue
+sudo lpadmin -x Canon-LBP2330
 
-# Print duplex (flip on short edge — landscape/booklet style)
-lp -d Canon_LBP2330 -o Duplex=DuplexTumble document.pdf
-
-# Fine mode (1200 dpi — slower but sharper)
-lp -d Canon_LBP2330 -o Resolution=1200dpi document.pdf
-
-# Multiple copies
-lp -d Canon_LBP2330 -n 3 document.pdf
-
-# Legal paper
-lp -d Canon_LBP2330 -o PageSize=Legal document.pdf
-```
-
-### Universal wrapper — any file type
-```bash
-# Make executable once:
-chmod +x scripts/print-file.sh
-
-# Print PDF
-./scripts/print-file.sh document.pdf
-
-# Print Word document
-./scripts/print-file.sh report.docx
-
-# Print Excel spreadsheet
-./scripts/print-file.sh budget.xlsx
-
-# Print image
-./scripts/print-file.sh photo.jpg
-
-# Print duplex, A4, fine quality
-./scripts/print-file.sh -d long -q fine presentation.pptx
-
-# Print multiple files
-./scripts/print-file.sh -n 2 -d long doc1.pdf doc2.docx image.png
-
-# Full options
-./scripts/print-file.sh -h
-```
-
-#### Wrapper options
-| Flag | Values | Default | Description |
-|------|--------|---------|-------------|
-| `-p` | printer name | `Canon_LBP2330` | Target printer |
-| `-n` | 1, 2, … | `1` | Number of copies |
-| `-s` | `a4`, `letter`, `legal` | `a4` | Paper size |
-| `-d` | `none`, `long`, `short` | `none` | Duplex mode |
-| `-q` | `normal`, `fine` | `normal` | Print quality |
-| `-t` | `plain`, `thin`, `heavy` | `plain` | Media type |
-| `-r` | — | — | Reverse page order |
-
----
-
-## PPD Options Reference
-
-These can be set via `lp -o` or in any application's print dialog.
-
-| Option | Values | Default |
-|--------|--------|---------|
-| `PageSize` | `A4`, `Letter`, `Legal` | `A4` |
-| `InputSlot` | `Cassette`, `Manual` | `Cassette` |
-| `MediaType` | `Plain`, `Thin`, `Heavy` | `Plain` |
-| `Resolution` | `600dpi`, `1200dpi` | `600dpi` |
-| `Duplex` | `None`, `DuplexNoTumble`, `DuplexTumble` | `None` |
-
-> **Note:** Heavy paper + duplex is blocked (hardware constraint — duplex unit
-> can jam with paper above ~90 g/m²). The PPD enforces this via UIConstraints.
-
----
-
-## Changing Defaults Permanently
-
-```bash
-# Set duplex as permanent default
-lpoptions -p Canon_LBP2330 -o Duplex=DuplexNoTumble
-
-# Revert to simplex
-lpoptions -p Canon_LBP2330 -o Duplex=None
-
-# Set 1200dpi as default
-lpoptions -p Canon_LBP2330 -o Resolution=1200dpi
+# Re-run installer (safe to run again — removes old queue first)
+sudo bash install.sh
 ```
 
 ---
 
 ## Troubleshooting
 
-### Printer not detected via USB
+**"universal filter failed"**
 ```bash
-# List all detected printers
+which foomatic-rip   # must return a path
+which gs             # must return a path
+sudo systemctl restart cups
+```
+
+**Printer not detected during install**
+The script will prompt for a URI. Find it with:
+```bash
 lpinfo -v
-
-# Find your Canon and note the URI
-lpinfo -v | grep -i canon
-
-# Re-add with the correct URI
-sudo lpadmin -p Canon_LBP2330 \
-    -v "usb://Canon/LBP2330?serial=XXXX" \
-    -P /usr/share/ppd/Canon/Canon-LBP2330.ppd -E
+# look for a line like: direct usb://Canon/LBP2330?serial=...
 ```
 
-### CUPS won't start
-```bash
-sudo systemctl status cups
-sudo journalctl -u cups -n 50
-```
+**CUPS web interface**
+Browse to `http://localhost:631` to manage printers visually.
 
-### Filter errors in log
+**Check CUPS logs for errors**
 ```bash
+journalctl -u cups -f
+# or
 sudo tail -f /var/log/cups/error_log
 ```
 
-### Test filter directly
-```bash
-gs -dBATCH -dNOPAUSE -sDEVICE=cups -sOutputFile=test.raster test.pdf
-python3 filters/rastertopcl6 1 user title 1 "" test.raster | xxd | head
-```
-
-### Jobs stuck in queue
-```bash
-lpq -P Canon_LBP2330
-cancel -a Canon_LBP2330
-```
-
 ---
 
-## How It Works
+## Printer Specs
 
-```
-Your file (PDF/DOCX/JPG…)
-        │
-        ▼ (CUPS dispatch)
-  pdftoraster / imagetoraster
-        │  [CUPS raster stream]
-        ▼
-  rastertopcl6   ← our custom filter
-        │  [PCL6 XL binary stream]
-        ▼
-  usb:// or socket://
-        │
-        ▼
-  Canon LBP2330 engine
-```
-
-**Why PCL6 and not UFR II?**  
-UFR II (Canon's proprietary language) requires closed-source binary blobs that
-Canon does not provide for all kernel/glibc versions, and the existing open
-wrappers throttle throughput. PCL6 is an open, well-documented standard that
-maps 1-to-1 to what the LBP2330 engine expects natively — no translation
-overhead, no speed penalty.
-
-**Why not use `hpijs` / generic HP PCL driver?**  
-Generic PCL5 drivers don't negotiate full-speed PCL6 XL framing.
-The LBP2330 accepts PCL6 XL natively; our filter speaks it directly.
-
----
-
-## Supported File Formats (via `print-file.sh`)
-
-| Format | Tool used |
-|--------|-----------|
-| PDF | `lp` (native CUPS) |
-| DOCX, DOC, ODT, RTF | LibreOffice headless |
-| XLSX, XLS, ODS, CSV | LibreOffice headless |
-| PPTX, PPT, ODP | LibreOffice headless |
-| JPG, PNG, TIFF, BMP, WebP | ImageMagick `convert` |
-| SVG | `rsvg-convert` or Inkscape |
-| TXT, MD, LOG | `enscript` → PDF |
-| PS, EPS | `ps2pdf` → PDF |
-
----
-
-## License
-This driver is released under the MIT License.
-Canon trademarks belong to Canon Inc.
+| | |
+|---|---|
+| Model | Canon LBP2330 |
+| Language | PCL5e |
+| GS Device | `ljet4` |
+| Paper | A4 (595×842 pt) |
+| Imageable Area | 12 12 583 830 |
+| Tray | Tray 1 (`dMediaPosition=1`) |
+| Duplex | Supported (long & short edge) |
