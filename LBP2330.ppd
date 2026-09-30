@@ -1,15 +1,15 @@
 *PPD-Adobe: "4.3"
-*% Custom PPD for Canon LBP2330 (PCL5e) - STRICT A4 + NATIVE TRAY 1
+*% Custom PPD for Canon LBP2330 (PCL6 / PCL5e) - STRICT A4 + NATIVE TRAY 1
 *FormatVersion: "4.3"
-*FileVersion: "1.4"
+*FileVersion: "1.5"
 *LanguageVersion: English
 *LanguageEncoding: ISOLatin1
 *PCFileName: "LBP2330.PPD"
 *Manufacturer: "Canon"
 *Product: "(LBP2330)"
-*ModelName: "Canon LBP2330 PCL5e Tray 1"
+*ModelName: "Canon LBP2330 Tray 1"
 *ShortNickName: "Canon LBP2330"
-*NickName: "Canon LBP2330 (PCL5e, Strict A4, Force Main Cassette)"
+*NickName: "Canon LBP2330 (Fixed Progressive Shift, Strict A4, Tray 1)"
 *PSVersion: "(3010.000) 0"
 *LanguageLevel: "3"
 *ColorDevice: False
@@ -23,8 +23,8 @@
 *cupsFilter: "application/vnd.cups-postscript 100 foomatic-rip"
 *cupsFilter: "application/vnd.cups-pdf 100 foomatic-rip"
 
-*% -dMediaPosition=1 forces Ghostscript to encode "Tray 1" directly into the PCL stream
-*FoomaticRIPCommandLine: "gs -q -dQUIET -dSAFER -dNOPAUSE -dBATCH -dFIXEDMEDIA -dPDFFitPage -sDEVICE=ljet4d -sPAPERSIZE=a4 -dMediaPosition=1 -sOutputFile=- -"
+*% Removed -dPDFFitPage and updated device driver to prevent CTM drift
+*FoomaticRIPCommandLine: "gs -q -dQUIET -dSAFER -dNOPAUSE -dBATCH -dFIXEDMEDIA -sDEVICE=pxlmono -sPAPERSIZE=a4 -dMediaPosition=1 -sOutputFile=- -"
 
 *OpenGroup: General/General
 
@@ -32,13 +32,13 @@
 *OpenUI *PageSize/Media Size: PickOne
 *OrderDependency: 10 AnySetup *PageSize
 *DefaultPageSize: A4
-*PageSize A4/A4: "<</PageSize[595 842]/ImagingBBox null>>setpagedevice"
+*PageSize A4/A4: "<</PageSize[595 842]>>setpagedevice"
 *CloseUI: *PageSize
 
 *OpenUI *PageRegion/Media Region: PickOne
 *OrderDependency: 10 AnySetup *PageRegion
 *DefaultPageRegion: A4
-*PageRegion A4/A4: "<</PageSize[595 842]/ImagingBBox null>>setpagedevice"
+*PageRegion A4/A4: "<</PageSize[595 842]>>setpagedevice"
 *CloseUI: *PageRegion
 
 *DefaultImageableArea: A4
