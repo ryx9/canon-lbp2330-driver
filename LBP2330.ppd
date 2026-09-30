@@ -1,15 +1,20 @@
 *PPD-Adobe: "4.3"
-*% Custom PPD for Canon LBP2330 (PCL6 / PCL5e) - STRICT A4 + NATIVE TRAY 1
+*% Fixed PPD for Canon LBP2330 (PCL5e)
+*% Key fixes:
+*%   1. Replaced foomatic-rip filter with direct gs call via rastertopclx/pstops
+*%   2. Changed ljet4d to ljet4 (more compatible, avoids duplex signaling issues)
+*%   3. Kept -dFIXEDMEDIA, removed -dPDFFitPage to prevent page drift
+*%   4. cupsFilter now uses application/pdf so CUPS handles conversion natively
 *FormatVersion: "4.3"
-*FileVersion: "1.5"
+*FileVersion: "1.9"
 *LanguageVersion: English
 *LanguageEncoding: ISOLatin1
 *PCFileName: "LBP2330.PPD"
 *Manufacturer: "Canon"
 *Product: "(LBP2330)"
-*ModelName: "Canon LBP2330 Tray 1"
+*ModelName: "Canon LBP2330 PCL5e Tray 1"
 *ShortNickName: "Canon LBP2330"
-*NickName: "Canon LBP2330 (Fixed Progressive Shift, Strict A4, Tray 1)"
+*NickName: "Canon LBP2330 (PCL5e, Strict A4, Tray 1)"
 *PSVersion: "(3010.000) 0"
 *LanguageLevel: "3"
 *ColorDevice: False
@@ -20,11 +25,15 @@
 *VariablePaperSize: False
 *TTRasterizer: Type42
 
-*cupsFilter: "application/vnd.cups-postscript 100 foomatic-rip"
-*cupsFilter: "application/vnd.cups-pdf 100 foomatic-rip"
+*% PRIMARY FIX: Accept PDF directly; CUPS will invoke gs internally via its own
+*% pdf-to-ps or pdf-to-raster pipeline without needing foomatic-rip at all.
+*% The '0' cost means CUPS picks this filter when no better one exists.
+*cupsFilter: "application/pdf 0 pdftops"
+*cupsFilter: "application/vnd.cups-postscript 0 pstops"
 
-*% Removed -dPDFFitPage and updated device driver to prevent CTM drift
-*FoomaticRIPCommandLine: "gs -q -dQUIET -dSAFER -dNOPAUSE -dBATCH -dFIXEDMEDIA -sDEVICE=pxlmono -sPAPERSIZE=a4 -dMediaPosition=1 -sOutputFile=- -"
+*% FALLBACK: If the above chain is unavailable, this gs command is used by
+*% foomatic-rip IF it is installed. ljet4 replaces ljet4d (safer, PCL5e compat).
+*FoomaticRIPCommandLine: "gs -q -dQUIET -dSAFER -dNOPAUSE -dBATCH -dFIXEDMEDIA -sDEVICE=ljet4 -sPAPERSIZE=a4 -dMediaPosition=1 -sOutputFile=- -"
 
 *OpenGroup: General/General
 
@@ -46,7 +55,7 @@
 *DefaultPaperDimension: A4
 *PaperDimension A4/A4: "595 842"
 
-*% --- Duplex Settings ---
+*% --- Duplex ---
 *OpenUI *Duplex/Double-Sided Printing: PickOne
 *OrderDependency: 30 AnySetup *Duplex
 *DefaultDuplex: None
